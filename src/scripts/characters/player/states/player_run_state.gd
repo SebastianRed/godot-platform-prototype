@@ -1,45 +1,43 @@
-class_name PlayerRunState extends State
+class_name PlayerRunState
+extends State
 
 const SPEED = 200.0
 const ACCELERATION = 800.0
 const BRAKING_POWER = 2000.0
 
 func enter() -> void:
-	if character_context:
-		var animated_sprite = character_context.get_node("AnimatedSprite2D")
-		if animated_sprite:
-			animated_sprite.play("run")
-		print("PlayerRunState: Entrando")
+	play_animation("run")
+	print("PlayerRunState: Entrando.")
 
 func physics_process(delta: float) -> void:
-	if character_context:
-		if not character_context.is_on_floor():
-			transition_to("PlayerFallState")
-		
-		# Nuevo: Transición si el buffer está activo.
-		if character_context.jump_buffer_timer > 0 and character_context.is_on_floor():
-			character_context.jump_buffer_timer = 0 # Resetear el buffer
-			transition_to("PlayerJumpState")
-		
-		var direction = Input.get_axis("move_left", "move_right")
-		var target_velocity = direction * SPEED
+	if not character_context:
+		return
 
-		var is_changing_direction = sign(character_context.velocity.x) != sign(direction) and direction != 0
-		
-		if is_changing_direction:
-			character_context.velocity.x = move_toward(character_context.velocity.x, target_velocity, BRAKING_POWER * delta)
-		else:
-			character_context.velocity.x = move_toward(character_context.velocity.x, target_velocity, ACCELERATION * delta)
-		
-		if direction:
-			var animated_sprite = character_context.get_node("AnimatedSprite2D")
-			if animated_sprite:
-				animated_sprite.flip_h = direction < 0
-		else:
-			transition_to("PlayerIdleState")
-		
-		# Nota: se elimina la condición de `Input.is_action_just_pressed("jump")`
-		# porque ahora el buffer se encarga de esa lógica.
-		
-		character_context.velocity.y += 980 * delta
-		character_context.move_and_slide()
+	if not character_context.is_on_floor():
+		transition_to("PlayerFallState")
+		return
+
+	if character_context.jump_buffer_timer > 0:
+		character_context.jump_buffer_timer = 0
+		transition_to("PlayerJumpState")
+		return
+
+	var direction = get_input_direction()
+	var target_velocity = direction * SPEED
+
+	var is_changing_direction = sign(character_context.velocity.x) != sign(direction) and direction != 0
+	var acceleration = BRAKING_POWER if is_changing_direction else ACCELERATION
+
+	character_context.velocity.x = move_toward(character_context.velocity.x, target_velocity, acceleration * delta)
+	flip_sprite_by_direction(direction)
+
+	if direction == 0:
+		transition_to("PlayerIdleState")
+		return
+
+	character_context.velocity.y += 980 * delta
+	character_context.move_and_slide()
+
+func exit() -> void:
+	# No hay señales conectadas aquí
+	pass
